@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Greenkeeper — Golf Course Designer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Lato:wght@300;400;700&family=IM+Fell+English+SC&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --green-deep:  #121f12;
+  --panel-bg:    #192d19;
+  --canvas-bg:   #1a3218;
+  --tan:         #c8a96e;
+  --tan-light:   #ecdaa8;
+  --tan-dim:     rgba(200,169,110,0.32);
+  --cream:       #f4eddb;
+  --brown:       #6b4c2a;
+  --brown-dark:  #221404;
+  --ink:         #1a1008;
+  --red:         #c03030;
+  --hi:  #f0e8d0;
+  --md:  #c4a870;
+  --lo:  rgba(196,168,112,0.45);
+  --ok:   #6ec458;
+  --warn: #e09040;
+  --over: #d84040;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Lato', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  background: var(--green-deep);
+  color: var(--hi);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  flex-shrink: 0;
+  background: var(--brown-dark);
+  border-bottom: 3px solid var(--tan);
+  z-index: 30;
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  height: 58px;
+  padding: 0 20px;
+  gap: 16px;
+}
+.logo { display: flex; flex-direction: column; gap: 1px; }
+.logo-title {
+  font-family: 'IM Fell English SC', serif;
+  font-size: 22px;
+  color: var(--tan);
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.logo-sub {
+  font-size: 10px;
+  color: var(--md);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.course-name-wrap { flex: 1; display: flex; justify-content: center; }
+#course-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 21px;
+  font-style: italic;
+  color: var(--hi);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--tan-dim);
+  text-align: center;
+  width: 360px;
+  padding: 3px 10px;
+  outline: none;
+  transition: border-color .2s;
+}
+#course-name:focus { border-bottom-color: var(--tan); }
+#course-name::placeholder { color: rgba(240,232,208,0.2); }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.budget-badge {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 5px 14px;
+  border: 1px solid var(--tan-dim);
+  border-radius: 4px;
+  min-width: 190px;
+}
+.bb-row { display: flex; justify-content: space-between; align-items: baseline; }
+.bb-label { font-size: 10px; color: var(--lo); text-transform: uppercase; letter-spacing: 1px; }
+.bb-spent { font-weight: 700; font-size: 17px; color: var(--hi); }
+.bb-total { font-size: 10px; color: var(--md); }
+.bb-bar-wrap { width: 100%; background: rgba(255,255,255,0.08); height: 4px; border-radius: 2px; }
+.bb-bar { height: 4px; border-radius: 2px; transition: width .3s, background .3s; }
+.hdr-btn {
+  font-family: 'Lato', sans-serif; font-weight: 700;
+  font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 8px 16px;
+  border: 1.5px solid var(--tan); background: transparent;
+  color: var(--tan-light); cursor: pointer; transition: all .18s; border-radius: 3px;
+}
+.hdr-btn:hover { background: var(--tan); color: var(--brown-dark); }
+.hdr-btn.primary { background: var(--tan); color: var(--brown-dark); }
+.hdr-btn.primary:hover { background: var(--tan-light); }
+
+/* ── MAIN: canvas fills everything ── */
+.main-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+.canvas-area {
+  position: absolute;
+  inset: 0;
+  bottom: 86px; /* height of toolbar */
+  background: var(--canvas-bg);
+  cursor: crosshair;
+  overflow: hidden;
+}
+#main-canvas { display: block; width: 100%; height: 100%; }
+
+/* canvas overlays */
+.canvas-overlay-btns {
+  position: absolute; top: 10px; right: 10px;
+  display: flex; gap: 5px; z-index: 5;
+}
+.map-btn {
+  width: 34px; height: 34px;
+  background: rgba(12,24,12,0.88);
+  border: 1px solid rgba(200,169,110,0.4);
+  color: var(--tan); font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; transition: background .15s;
+}
+.map-btn:hover { background: rgba(200,169,110,0.2); }
+.map-btn.lbl { font-family: 'Lato',sans-serif; font-weight:700; font-size:12px; }
+.canvas-status {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(12,24,12,0.92);
+  border: 1px solid rgba(200,169,110,0.3);
+  color: var(--md); font-size: 12px; font-style: italic;
+  padding: 5px 18px; pointer-events: none; white-space: nowrap; border-radius: 3px;
+  z-index: 5;
+}
+
+/* ── TOOLBAR ── */
+.toolbar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 86px;
+  background: var(--brown-dark);
+  border-top: 3px solid var(--tan);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  z-index: 20;
+  overflow-x: auto;
+  padding: 0 16px;
+}
+.toolbar::-webkit-scrollbar { height: 3px; }
+.toolbar::-webkit-scrollbar-thumb { background: var(--tan-dim); }
+
+/* dropdown toggle buttons in the toolbar (Holes / Report) */
+.tb-dropdown-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 14px;
+  background: rgba(200,169,110,0.1);
+  border: 1.5px solid rgba(200,169,110,0.35);
+  border-radius: 4px;
+  color: var(--tan-light);
+  cursor: pointer; transition: all .15s;
+  white-space: nowrap; flex-shrink: 0;
+  font-family: 'Lato', sans-serif;
+  position: relative;
+}
+.tb-dropdown-btn:hover, .tb-dropdown-btn.open {
+  background: rgba(200,169,110,0.22);
+  border-color: var(--tan);
+}
+.tb-dropdown-btn.open { box-shadow: 0 0 12px rgba(200,169,110,0.2); }
+.tbd-icon { font-size: 20px; line-height: 1; }
+.tbd-label { font-weight: 700; font-size: 12px; letter-spacing: .5px; }
+.tbd-arrow {
+  font-size: 9px; color: var(--md); letter-spacing: 0;
+  transition: transform .2s;
+}
+.tb-dropdown-btn.open .tbd-arrow { transform: rotate(180deg); }
+
+/* the actual dropdown panels that float upward */
+.dropdown-panel {
+  position: absolute;
+  bottom: 90px; /* just above toolbar */
+  left: 0;
+  width: 320px;
+  background: var(--panel-bg);
+  border: 2px solid var(--tan-dim);
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 -6px 30px rgba(0,0,0,0.5);
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+  animation: slideUp .2s ease;
+}
+.dropdown-panel.open { display: flex; }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* right-anchored variant */
+.dropdown-panel.right-anchor {
+  left: auto;
+  right: 0;
+  width: 340px;
+}
+
+.dp-header {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 16px;
+  background: var(--brown-dark);
+  border-bottom: 1px solid var(--tan-dim);
+}
+.dp-title {
+  font-family: 'IM Fell English SC', serif;
+  font-size: 14px; letter-spacing: 2px; color: var(--tan);
+}
+.dp-close {
+  background: none; border: none; color: var(--md);
+  font-size: 18px; cursor: pointer; line-height: 1; padding: 0 2px;
+  transition: color .15s;
+}
+.dp-close:hover { color: var(--hi); }
+.dp-body {
+  flex: 1; overflow-y: auto; padding: 10px 14px;
+}
+.dp-body::-webkit-scrollbar { width: 4px; }
+.dp-body::-webkit-scrollbar-thumb { background: var(--tan-dim); border-radius: 2px; }
+.dp-footer {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--tan-dim);
+}
+
+/* ── HOLE ITEMS ── */
+.hole-item {
+  background: rgba(200,169,110,0.06);
+  border: 1px solid rgba(200,169,110,0.15);
+  border-radius: 5px;
+  padding: 11px 12px 9px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+.hole-item:hover, .hole-item.selected {
+  background: rgba(200,169,110,0.14);
+  border-color: var(--tan);
+}
+.hole-item-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.hole-num-label {
+  font-family: 'IM Fell English SC', serif;
+  font-size: 14px; color: var(--tan); letter-spacing: 1px;
+}
+.hole-par-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;
+}
+.par3-badge { background: rgba(90,160,74,0.22); color: #8fd476; }
+.par4-badge { background: rgba(200,169,110,0.18); color: var(--tan-light); }
+.par5-badge { background: rgba(232,160,96,0.18); color: #e8a060; }
+.hole-name-inp {
+  background: transparent; border: none;
+  border-bottom: 1px solid rgba(200,169,110,0.25);
+  color: var(--hi);
+  font-family: 'Playfair Display', serif; font-style: italic;
+  font-size: 14px; width: 100%; outline: none;
+  padding: 2px 0; margin-bottom: 7px;
+}
+.hole-name-inp:focus { border-bottom-color: var(--tan); }
+.hole-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.field-group label {
+  display: block; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--lo); margin-bottom: 2px;
+}
+.field-inp, .field-sel {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(200,169,110,0.18); border-radius: 3px;
+  color: var(--hi); font-family: 'Lato', sans-serif; font-size: 13px;
+  width: 100%; padding: 4px 5px; outline: none;
+}
+.field-sel option { background: var(--panel-bg); }
+.field-inp:focus, .field-sel:focus { border-color: var(--tan); }
+.hole-del {
+  position: absolute; top: 8px; right: 8px;
+  background: none; border: none; color: rgba(184,50,50,0.3);
+  cursor: pointer; font-size: 14px; line-height: 1; transition: color .15s;
+}
+.hole-del:hover { color: var(--red); }
+.add-hole-btn {
+  width: 100%; padding: 10px;
+  background: rgba(200,169,110,0.09);
+  border: 1px dashed rgba(200,169,110,0.3); border-radius: 4px;
+  color: var(--tan-light);
+  font-family: 'Lato', sans-serif; font-weight: 700;
+  font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  cursor: pointer; transition: all .2s;
+}
+.add-hole-btn:hover { background: rgba(200,169,110,0.18); border-color: var(--tan); }
+.empty-hint {
+  text-align: center; padding: 24px 10px;
+  font-size: 13px; color: var(--lo); font-style: italic; line-height: 1.8;
+}
+
+/* ── RIGHT PANEL: Scorecard / Budget / Prestige / Reviews ── */
+.rp-section {
+  padding: 12px 0;
+  border-top: 1px solid rgba(200,169,110,0.12);
+}
+.rp-section:first-child { border-top: none; }
+.rp-title {
+  font-family: 'IM Fell English SC', serif;
+  font-size: 13px; letter-spacing: 2px; color: var(--tan);
+  text-align: center; margin-bottom: 10px;
+}
+table.sc { width: 100%; border-collapse: collapse; }
+table.sc th {
+  font-family: 'Lato', sans-serif; font-weight: 700;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--lo); padding: 4px 3px; text-align: center;
+  border-bottom: 1px solid rgba(200,169,110,0.22);
+}
+table.sc td {
+  padding: 4px 3px; text-align: center;
+  color: var(--hi); font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+table.sc tr:hover td { background: rgba(200,169,110,0.07); }
+.sc-total-row td { color: var(--tan) !important; font-weight: 700; border-top: 1px solid rgba(200,169,110,0.22); }
+.p3 { color: #72c060 !important; }
+.p4 { color: var(--tan-light) !important; }
+.p5 { color: #e8a060 !important; }
+.sc-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--lo); margin: 8px 0 4px; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.stat-row:last-child { border-bottom: none; }
+.stat-row .sl { font-size: 12px; color: var(--md); }
+.stat-row .sv { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--hi); }
+.budget-input-row { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.budget-input-row label { font-size: 11px; color: var(--lo); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+#budget-input {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(200,169,110,0.25); border-radius: 3px;
+  color: var(--hi); font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700;
+  width: 100%; padding: 5px 9px; outline: none; text-align: right;
+}
+#budget-input:focus { border-color: var(--tan); }
+.bar-wrap { width: 100%; background: rgba(255,255,255,0.08); height: 6px; border-radius: 3px; margin: 6px 0; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width .4s, background .4s; }
+.b-line { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.b-line .bln { display: flex; align-items: center; gap: 5px; color: var(--md); font-size: 12px; }
+.b-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.b-cost { font-weight: 700; font-size: 12px; color: var(--tan-light); }
+.b-total-row { display: flex; justify-content: space-between; padding: 6px 0 2px; border-top: 1px solid rgba(200,169,110,0.22); margin-top: 4px; }
+.b-total-row .btl { font-size: 11px; color: var(--lo); text-transform: uppercase; letter-spacing: 1px; }
+.b-total-row .btv { font-size: 14px; font-weight: 700; }
+.clr-ok { color: var(--ok); } .clr-warn { color: var(--warn); } .clr-over { color: var(--over); }
+.prestige-tier-display {
+  text-align: center; font-family: 'Playfair Display', serif; font-style: italic;
+  font-size: 16px; color: var(--hi); margin-bottom: 6px; transition: color .4s;
+}
+.prestige-score-row { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+.prestige-num { font-family: 'IM Fell English SC', serif; font-size: 30px; color: var(--tan); min-width: 46px; text-align: right; line-height: 1; }
+.prestige-bar-outer { flex: 1; background: rgba(255,255,255,0.08); height: 10px; border-radius: 5px; overflow: hidden; }
+.prestige-bar-inner { height: 100%; border-radius: 5px; transition: width .5s cubic-bezier(.4,0,.2,1), background .5s; }
+.prestige-max { font-size: 11px; color: var(--lo); min-width: 28px; text-align: right; }
+.prestige-next-hint { font-size: 12px; font-style: italic; color: var(--lo); text-align: center; margin-bottom: 9px; }
+.factor-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.fi { font-size: 12px; width: 18px; text-align: center; flex-shrink: 0; }
+.fl { font-size: 12px; color: var(--md); flex: 1; }
+.fd { display: flex; gap: 3px; }
+.fdot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.1); transition: background .3s; }
+.fdot.on-g { background: var(--ok); } .fdot.on-y { background: var(--warn); } .fdot.on-r { background: var(--over); }
+.comments-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--lo); text-align: center; margin-bottom: 8px; }
+.comment-card { padding: 9px 10px; margin-bottom: 7px; background: rgba(200,169,110,0.05); border-radius: 4px; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+.comment-card.pos { border-left: 3px solid var(--ok); }
+.comment-card.neg { border-left: 3px solid var(--red); }
+.comment-card.neu { border-left: 3px solid var(--tan-dim); }
+.cmt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.cmt-player { font-family: 'IM Fell English SC', serif; font-size: 12px; color: var(--tan); }
+.cmt-stars { font-size: 11px; color: var(--tan); }
+.cmt-text { font-family: 'Playfair Display', serif; font-style: italic; font-size: 13px; color: var(--md); line-height: 1.5; }
+
+/* ── TOOL BUTTONS ── */
+.tb-group { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.tb-group-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--lo); padding-left: 2px; }
+.tb-tools { display: flex; gap: 4px; }
+.tb-divider { width: 1px; align-self: stretch; background: rgba(200,169,110,0.15); margin: 0 8px; flex-shrink: 0; }
+.tool-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 7px 12px; min-width: 66px;
+  background: rgba(200,169,110,0.07);
+  border: 1px solid rgba(200,169,110,0.18);
+  border-radius: 4px; color: var(--md);
+  cursor: pointer; transition: all .14s; white-space: nowrap;
+}
+.tool-btn:hover { background: rgba(200,169,110,0.16); border-color: rgba(200,169,110,0.5); color: var(--hi); }
+.tool-btn.active { background: rgba(200,169,110,0.24); border-color: var(--tan); color: var(--tan-light); box-shadow: 0 0 10px rgba(200,169,110,0.14); }
+.tb-icon { font-size: 20px; line-height: 1; }
+.tb-name { font-weight: 700; font-size: 11px; }
+.tb-cost { font-size: 10px; color: var(--lo); font-style: italic; }
+.tool-btn.active .tb-cost { color: rgba(200,169,110,0.6); }
+.brush-ctrl { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 84px; flex-shrink: 0; }
+.brush-ctrl label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--lo); }
+#brush-size { width: 84px; accent-color: var(--tan); cursor: pointer; }
+.brush-val { font-size: 12px; font-weight: 700; color: var(--md); }
+
+/* ── MISC ── */
+#measure-tooltip {
+  position: fixed; pointer-events: none; display: none;
+  background: rgba(8,5,0,0.94); border: 1px solid var(--tan); color: var(--tan-light);
+  font-family: 'Lato', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 1px;
+  padding: 6px 16px; border-radius: 3px; white-space: nowrap; z-index: 300;
+}
+#ctx-menu {
+  position: fixed; background: var(--brown-dark); border: 1px solid var(--tan);
+  z-index: 1000; display: none; flex-direction: column; min-width: 160px; border-radius: 4px; overflow: hidden;
+}
+#ctx-menu button { font-family: 'Lato', sans-serif; font-size: 14px; padding: 10px 15px; background: none; border: none; color: var(--hi); cursor: pointer; text-align: left; transition: background .12s; }
+#ctx-menu button:hover { background: rgba(200,169,110,0.16); }
+#ctx-menu button.sep { border-top: 1px solid var(--tan-dim); color: #e07070; }
+.modal-back { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.66); z-index: 500; align-items: center; justify-content: center; }
+.modal-back.open { display: flex; }
+.modal { background: var(--cream); border: 3px solid var(--tan); padding: 26px 30px; min-width: 330px; border-radius: 3px; }
+.modal-title { font-family: 'Playfair Display', serif; font-size: 22px; font-style: italic; color: var(--brown-dark); margin-bottom: 18px; border-bottom: 1px solid var(--tan); padding-bottom: 8px; }
+.mform-row { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
+.mform-row label { font-family: 'Lato', sans-serif; font-weight: 700; font-size: 10px; letter-spacing: 2px; color: var(--brown); text-transform: uppercase; }
+.mform-row input, .mform-row select { font-family: 'Lato', sans-serif; font-size: 15px; padding: 7px 10px; border: 1px solid var(--tan); background: white; color: var(--ink); outline: none; border-radius: 3px; }
+.mform-row input:focus, .mform-row select:focus { border-color: var(--brown); }
+.mform-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+.mbtn { font-family: 'Lato', sans-serif; font-weight: 700; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; padding: 9px 18px; border-radius: 3px; border: 1px solid var(--brown); background: transparent; color: var(--brown-dark); cursor: pointer; transition: all .2s; }
+.mbtn.save { background: var(--green-deep); color: var(--tan-light); border-color: var(--green-deep); }
+.mbtn:hover { opacity: .8; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-title">The Greenkeeper</div>
+      <div class="logo-sub">Golf Course Designer</div>
+    </div>
+    <div class="course-name-wrap">
+      <input type="text" id="course-name" placeholder="Name your course…" maxlength="50">
+    </div>
+    <div class="header-right">
+      <div class="budget-badge">
+        <div class="bb-row">
+          <span class="bb-label">Budget Spent</span>
+          <span class="bb-total" id="hb-total">/ $10,000,000</span>
+        </div>
+        <div class="bb-bar-wrap"><div class="bb-bar" id="hb-bar" style="width:0%;background:#5a9e4a;"></div></div>
+        <div class="bb-row"><span class="bb-spent" id="hb-spent">$0</span></div>
+      </div>
+      <button class="hdr-btn" onclick="clearCanvas()">Clear</button>
+      <button class="hdr-btn primary" onclick="saveCourse()">💾 Save</button>
+      <button class="hdr-btn" onclick="loadCourse()">📂 Load</button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN: canvas fills everything above the toolbar -->
+<div class="main-area">
+
+  <!-- Canvas -->
+  <div class="canvas-area" id="canvas-area">
+    <canvas id="main-canvas"></canvas>
+    <div id="measure-tooltip"></div>
+    <div class="canvas-overlay-btns">
+      <button class="map-btn" onclick="zoom(1.2)" title="Zoom In">+</button>
+      <button class="map-btn" onclick="zoom(0.8)" title="Zoom Out">−</button>
+      <button class="map-btn lbl" onclick="resetZoom()" title="Fit">Fit</button>
+    </div>
+    <div class="canvas-status" id="canvas-hint">Select a tool and start painting</div>
+  </div>
+
+  <!-- HOLES dropdown panel (anchored left) -->
+  <div class="dropdown-panel" id="holes-panel">
+    <div class="dp-header">
+      <span class="dp-title">⛳ Holes</span>
+      <button class="dp-close" onclick="closeDropdown('holes')">✕</button>
+    </div>
+    <div class="dp-body" id="hole-list">
+      <div class="empty-hint" id="hole-empty">Place a flag ⛳ on the canvas<br>to create a hole, or add one below.</div>
+    </div>
+    <div class="dp-footer">
+      <button class="add-hole-btn" onclick="addHoleManually()">+ Add Hole Manually</button>
+    </div>
+  </div>
+
+  <!-- COURSE REPORT dropdown panel (anchored right) -->
+  <div class="dropdown-panel right-anchor" id="report-panel">
+    <div class="dp-header">
+      <span class="dp-title">📋 Course Report</span>
+      <button class="dp-close" onclick="closeDropdown('report')">✕</button>
+    </div>
+    <div class="dp-body">
+
+      <!-- Scorecard -->
+      <div class="rp-section">
+        <div class="rp-title" id="sc-course-name">Your Course</div>
+        <div id="scorecard-content">
+          <div class="empty-hint">Add holes to see your scorecard.</div>
+        </div>
+      </div>
+
+      <!-- Budget -->
+      <div class="rp-section">
+        <div class="rp-title">💰 Build Budget</div>
+        <div class="budget-input-row">
+          <label>Budget</label>
+          <input type="number" id="budget-input" value="10000000" min="0" step="500000" onchange="updateBudgetUI();updatePrestige()">
+        </div>
+        <div class="bar-wrap">
+          <div class="bar-fill" id="budget-bar" style="width:0%;background:#5a9e4a;"></div>
+        </div>
+        <div id="budget-breakdown"></div>
+      </div>
+
+      <!-- Prestige -->
+      <div class="rp-section">
+        <div class="rp-title">⭐ Course Prestige</div>
+        <div class="prestige-tier-display" id="prestige-tier">—</div>
+        <div class="prestige-score-row">
+          <div class="prestige-num" id="prestige-num">0</div>
+          <div class="prestige-bar-outer">
+            <div class="prestige-bar-inner" id="prestige-bar" style="width:0%;background:#555;"></div>
+          </div>
+          <div class="prestige-max">/100</div>
+        </div>
+        <div class="prestige-next-hint" id="prestige-next">Start building to earn prestige</div>
+        <div id="prestige-factors"></div>
+      </div>
+
+      <!-- Player Reviews -->
+      <div class="rp-section">
+        <div class="comments-title">Player Reviews</div>
+        <div id="player-comments">
+          <div class="empty-hint">No reviews yet.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOOLBAR (positioned at bottom of .main-area) -->
+  <div class="toolbar">
+
+    <!-- Holes toggle -->
+    <button class="tb-dropdown-btn" id="holes-toggle" onclick="toggleDropdown('holes')" style="margin-right:6px;">
+      <span class="tbd-icon">⛳</span>
+      <span class="tbd-label">Holes</span>
+      <span class="tbd-arrow">▲</span>
+    </button>
+
+    <div class="tb-divider"></div>
+
+    <!-- Terrain tools -->
+    <div class="tb-group">
+      <div class="tb-group-label">Terrain</div>
+      <div class="tb-tools">
+        <button class="tool-btn active" id="tool-fairway" onclick="setTool('fairway')">
+          <span class="tb-icon">🌿</span><span class="tb-name">Fairway</span><span class="tb-cost">~$8/sq ft</span>
+        </button>
+        <button class="tool-btn" id="tool-rough" onclick="setTool('rough')">
+          <span class="tb-icon">🌾</span><span class="tb-name">Rough</span><span class="tb-cost">~$1/sq ft</span>
+        </button>
+        <button class="tool-btn" id="tool-green" onclick="setTool('green')">
+          <span class="tb-icon">🟢</span><span class="tb-name">Green</span><span class="tb-cost">~$12/sq ft</span>
+        </button>
+        <button class="tool-btn" id="tool-bunker" onclick="setTool('bunker')">
+          <span class="tb-icon">🏖</span><span class="tb-name">Bunker</span><span class="tb-cost">~$4/sq ft</span>
+        </button>
+        <button class="tool-btn" id="tool-water" onclick="setTool('water')">
+          <span class="tb-icon">💧</span><span class="tb-name">Water</span><span class="tb-cost">~$6/sq ft</span>
+        </button>
+        <button class="tool-btn" id="tool-trees" onclick="setTool('trees')">
+          <span class="tb-icon">🌲</span><span class="tb-name">Trees</span><span class="tb-cost">~$2.50/sq ft</span>
+        </button>
+        <button class="tool-btn" id="tool-path" onclick="setTool('path')">
+          <span class="tb-icon">🛤</span><span class="tb-name">Cart Path</span><span class="tb-cost">~$4/sq ft</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tb-divider"></div>
+
+    <!-- Object tools -->
+    <div class="tb-group">
+      <div class="tb-group-label">Place</div>
+      <div class="tb-tools">
+        <button class="tool-btn" id="tool-tee" onclick="setTool('tee')">
+          <span class="tb-icon">🏌</span><span class="tb-name">Tee Box</span><span class="tb-cost">$25k each</span>
+        </button>
+        <button class="tool-btn" id="tool-flag" onclick="setTool('flag')">
+          <span class="tb-icon">⛳</span><span class="tb-name">Flag / Hole</span><span class="tb-cost">$12k each</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tb-divider"></div>
+
+    <!-- Utility tools -->
+    <div class="tb-group">
+      <div class="tb-group-label">Utility</div>
+      <div class="tb-tools">
+        <button class="tool-btn" id="tool-measure" onclick="setTool('measure')">
+          <span class="tb-icon">📏</span><span class="tb-name">Measure</span><span class="tb-cost">ruler</span>
+        </button>
+        <button class="tool-btn" id="tool-erase" onclick="setTool('erase')">
+          <span class="tb-icon">🗑</span><span class="tb-name">Erase</span><span class="tb-cost">free</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tb-divider"></div>
+
+    <!-- Brush -->
+    <div class="brush-ctrl">
+      <label>Brush Size</label>
+      <input type="range" id="brush-size" min="8" max="80" value="24" oninput="document.getElementById('brush-val').textContent=this.value">
+      <span class="brush-val" id="brush-val">24</span>
+    </div>
+
+    <!-- spacer pushes Report toggle to right -->
+    <div style="flex:1;"></div>
+
+    <div class="tb-divider"></div>
+
+    <!-- Report toggle -->
+    <button class="tb-dropdown-btn" id="report-toggle" onclick="toggleDropdown('report')" style="margin-left:6px;">
+      <span class="tbd-icon">📋</span>
+      <span class="tbd-label">Course Report</span>
+      <span class="tbd-arrow">▲</span>
+    </button>
+
+  </div>
+</div><!-- /.main-area -->
+
+<!-- Context Menu -->
+<div id="ctx-menu">
+  <button onclick="ctxEditHole()">✏️ Edit Hole Details</button>
+  <button onclick="ctxDeleteElement()" class="sep">🗑 Delete</button>
+</div>
+
+<!-- Hole Detail Modal -->
+<div class="modal-back" id="modal-hole">
+  <div class="modal">
+    <div class="modal-title" id="modal-hole-title">Hole Details</div>
+    <div class="mform-row">
+      <label>Hole Name</label>
+      <input type="text" id="modal-hole-name" placeholder="e.g. 'The Devil's Elbow'" maxlength="40">
+    </div>
+    <div class="mform-inline">
+      <div class="mform-row">
+        <label>Par</label>
+        <select id="modal-hole-par">
+          <option value="3">Par 3</option>
+          <option value="4" selected>Par 4</option>
+          <option value="5">Par 5</option>
+        </select>
+      </div>
+      <div class="mform-row">
+        <label>Distance (yards)</label>
+        <input type="number" id="modal-hole-dist" min="50" max="750" value="380">
+      </div>
+    </div>
+    <div class="mform-row">
+      <label>Handicap (1–18)</label>
+      <input type="number" id="modal-hole-hcp" min="1" max="18" value="1">
+    </div>
+    <div class="mform-row">
+      <label>Notes / Description</label>
+      <input type="text" id="modal-hole-notes" placeholder="Optional flavour text…">
+    </div>
+    <div class="modal-actions">
+      <button class="mbtn" onclick="closeModal()">Cancel</button>
+      <button class="mbtn save" onclick="saveHoleDetails()">Save Hole</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DROPDOWN LOGIC ──────────────────────────────────────
+function toggleDropdown(which) {
+  const panel  = document.getElementById(which + '-panel');
+  const toggle = document.getElementById(which + '-toggle');
+  const isOpen = panel.classList.contains('open');
+  // close all first
+  document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.tb-dropdown-btn').forEach(b => b.classList.remove('open'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    toggle.classList.add('open');
+  }
+}
+function closeDropdown(which) {
+  document.getElementById(which + '-panel').classList.remove('open');
+  document.getElementById(which + '-toggle').classList.remove('open');
+}
+// clicking canvas closes any open dropdown
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('canvas-area').addEventListener('mousedown', () => {
+    document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.tb-dropdown-btn').forEach(b => b.classList.remove('open'));
+  });
+});
+
+
+// ============================================================
+// STATE & CONSTANTS
+// ============================================================
+const canvas = document.getElementById('main-canvas');
+const ctx = canvas.getContext('2d');
+const canvasArea = document.getElementById('canvas-area');
+const measureTooltip = document.getElementById('measure-tooltip');
+
+let currentTool = 'fairway';
+let isDrawing = false;
+let scale = 1, offsetX = 0, offsetY = 0;
+let isDragging = false, dragStart = null;
+let holes = [], tees = [];
+let selectedHoleId = null, editingHoleId = null, ctxMenuTarget = null;
+let undoStack = [];
+let measureAnchor = null, measureLive = null, measureFixed = null;
+let terrainAreas = { fairway:0, rough:0, green:0, bunker:0, water:0, trees:0, path:0 };
+
+// Real-world cost data
+const COSTS = { fairway:800, rough:100, green:1200, bunker:400, water:600, trees:250, path:400 };
+const TEE_COST = 25000, FLAG_COST = 12000;
+
+const DRAW_COLOR = {
+  fairway:'#4a7c3f', rough:'#2e5c25', green:'#3aaf42',
+  bunker:'#c8a96e', water:'#4a7fa5', trees:'#1e4a1e', path:'#b09070', erase:'#2a5a22'
+};
+const DOT_COLOR = {
+  fairway:'#4a7c3f', rough:'#2e5c25', green:'#3aaf42',
+  bunker:'#c8a96e', water:'#4a7fa5', trees:'#1e4a1e', path:'#b09070'
+};
+const COLOR_REF = {
+  fairway:[74,124,63], rough:[46,92,37], green:[58,175,66],
+  bunker:[200,169,110], water:[74,127,165], trees:[30,74,30], path:[176,144,112]
+};
+
+// Square world sized for 18 holes — approx 7000 yards wide at 0.2 yds/px = 3500px
+// Using 3000×3000 for a nicely square layout
+const worldW = 3000, worldH = 3000;
+const offCanvas = document.createElement('canvas');
+offCanvas.width = worldW; offCanvas.height = worldH;
+const offCtx = offCanvas.getContext('2d');
+const PX_TO_YARDS = 0.2;
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  resizeCanvas();
+  drawBg();
+  render();
+  updateBudgetUI();
+  window.addEventListener('resize', () => { resizeCanvas(); render(); });
+}
+
+function resizeCanvas() {
+  canvas.width = canvasArea.clientWidth;
+  canvas.height = canvasArea.clientHeight;
+  if (offsetX === 0 && offsetY === 0) {
+    // Fit the square world into the canvas, centered
+    const fit = Math.min(canvas.width, canvas.height);
+    scale = fit / worldW * 0.9;
+    offsetX = (canvas.width  - worldW * scale) / 2;
+    offsetY = (canvas.height - worldH * scale) / 2;
+  }
+}
+
+function drawBg() {
+  offCtx.fillStyle = '#2a5a22';
+  offCtx.fillRect(0, 0, worldW, worldH);
+  // Grid lines every 100px (= 20 yards)
+  offCtx.strokeStyle = 'rgba(255,255,255,0.025)';
+  offCtx.lineWidth = 1;
+  for (let x = 0; x <= worldW; x += 100) {
+    offCtx.beginPath(); offCtx.moveTo(x, 0); offCtx.lineTo(x, worldH); offCtx.stroke();
+  }
+  for (let y = 0; y <= worldH; y += 100) {
+    offCtx.beginPath(); offCtx.moveTo(0, y); offCtx.lineTo(worldW, y); offCtx.stroke();
+  }
+  // Subtle inner border suggestion
+  offCtx.strokeStyle = 'rgba(200,169,110,0.06)';
+  offCtx.lineWidth = 4;
+  offCtx.strokeRect(20, 20, worldW-40, worldH-40);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(scale, scale);
+
+  ctx.drawImage(offCanvas, 0, 0);
+
+  // Course border
+  ctx.strokeStyle = 'rgba(200,169,110,0.6)';
+  ctx.lineWidth = 4 / scale;
+  ctx.strokeRect(0, 0, worldW, worldH);
+
+  // Tees
+  tees.forEach(t => {
+    const s = 12 / scale;
+    ctx.fillStyle = '#e8d5a3';
+    ctx.fillRect(t.x - s, t.y - s, s*2, s*2);
+    ctx.strokeStyle = '#6b4c2a'; ctx.lineWidth = 1.5/scale;
+    ctx.strokeRect(t.x - s, t.y - s, s*2, s*2);
+    ctx.fillStyle = '#3d2b15';
+    ctx.font = `bold ${11/scale}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('T', t.x, t.y);
+  });
+
+  // Holes / flags
+  holes.forEach(h => {
+    const R = 11 / scale;
+    // Cup
+    ctx.beginPath(); ctx.arc(h.x, h.y, R, 0, Math.PI*2);
+    ctx.fillStyle = '#122212'; ctx.fill();
+    ctx.strokeStyle = '#c8a96e'; ctx.lineWidth = 2/scale; ctx.stroke();
+    // Pole
+    ctx.beginPath(); ctx.moveTo(h.x, h.y - R*0.2); ctx.lineTo(h.x, h.y - R*3.5);
+    ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 1.5/scale; ctx.stroke();
+    // Flag
+    ctx.beginPath();
+    ctx.moveTo(h.x, h.y - R*3.5);
+    ctx.lineTo(h.x + R*1.8, h.y - R*2.6);
+    ctx.lineTo(h.x, h.y - R*1.8);
+    ctx.closePath();
+    ctx.fillStyle = h.id === selectedHoleId ? '#ffe050' : '#c03030';
+    ctx.fill();
+    // Number
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${10/scale}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(h.number, h.x, h.y);
+  });
+
+  // Measure
+  const mEnd = measureLive || measureFixed;
+  if (measureAnchor && mEnd) {
+    ctx.beginPath();
+    ctx.moveTo(measureAnchor.x, measureAnchor.y);
+    ctx.lineTo(mEnd.x, mEnd.y);
+    ctx.strokeStyle = 'rgba(255,224,60,0.9)';
+    ctx.lineWidth = 2/scale;
+    ctx.setLineDash([10/scale, 5/scale]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Tick marks every 100 yards
+    const dx = mEnd.x - measureAnchor.x, dy = mEnd.y - measureAnchor.y;
+    const len = Math.hypot(dx, dy);
+    if (len > 0) {
+      const nx = dx/len, ny = dy/len;
+      const perp = { x: -ny, y: nx };
+      const tickPx = 100 / PX_TO_YARDS;
+      for (let d = tickPx; d < len; d += tickPx) {
+        const tx = measureAnchor.x + nx*d, ty = measureAnchor.y + ny*d;
+        ctx.beginPath();
+        ctx.moveTo(tx + perp.x*8/scale, ty + perp.y*8/scale);
+        ctx.lineTo(tx - perp.x*8/scale, ty - perp.y*8/scale);
+        ctx.strokeStyle = 'rgba(255,224,60,0.6)'; ctx.lineWidth = 1.5/scale;
+        ctx.stroke();
+      }
+    }
+
+    [measureAnchor, mEnd].forEach(pt => {
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 5/scale, 0, Math.PI*2);
+      ctx.fillStyle = '#ffe050'; ctx.fill();
+    });
+
+    // Label at midpoint
+    const mid = { x:(measureAnchor.x+mEnd.x)/2, y:(measureAnchor.y+mEnd.y)/2 };
+    const dist = Math.hypot(mEnd.x-measureAnchor.x, mEnd.y-measureAnchor.y) * PX_TO_YARDS;
+    const lbl = `${Math.round(dist)} yds`;
+    const fs = Math.max(12, 14/scale);
+    ctx.font = `bold ${fs}px 'Lato', sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    const tw = ctx.measureText(lbl).width;
+    ctx.fillStyle = 'rgba(16,12,4,0.8)';
+    ctx.fillRect(mid.x - tw/2 - 5, mid.y - fs - 6/scale, tw + 10, fs + 4/scale);
+    ctx.fillStyle = '#ffe050';
+    ctx.fillText(lbl, mid.x, mid.y - 3/scale);
+  }
+  if (measureAnchor && !mEnd) {
+    ctx.beginPath(); ctx.arc(measureAnchor.x, measureAnchor.y, 5/scale, 0, Math.PI*2);
+    ctx.fillStyle = '#ffe050'; ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ============================================================
+// TOOLS
+// ============================================================
+function setTool(t) {
+  currentTool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('tool-'+t); if (el) el.classList.add('active');
+  if (t !== 'measure') { measureAnchor = null; measureLive = null; measureFixed = null; render(); }
+  const HINTS = {
+    fairway:'Paint fairway — click and drag',
+    rough:'Paint rough — click and drag',
+    green:'Paint putting green — click and drag',
+    bunker:'Paint sand bunker — click and drag',
+    water:'Paint water hazard — click and drag',
+    trees:'Paint tree line — click and drag',
+    path:'Paint cart path — click and drag',
+    erase:'Erase terrain — click and drag',
+    tee:'Click to place a Tee Box ($25,000)',
+    flag:'Click to place a Hole Flag — a detail dialog will open',
+    measure:'Click to set start · Move to preview · Click to lock · Click again to reset',
+  };
+  document.getElementById('canvas-hint').textContent = HINTS[t] || '';
+}
+
+// ============================================================
+// CANVAS EVENTS
+// ============================================================
+function getWorldPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left-offsetX)/scale, y:(e.clientY-r.top-offsetY)/scale };
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 1) { isDragging=true; dragStart={x:e.clientX-offsetX, y:e.clientY-offsetY}; e.preventDefault(); return; }
+  if (e.button === 2) return;
+  const pos = getWorldPos(e);
+  if (currentTool==='flag')    { placeFlag(pos); return; }
+  if (currentTool==='tee')     { placeTee(pos); return; }
+  if (currentTool==='measure') { handleMeasureDown(pos); return; }
+  saveUndo(); isDrawing = true; paintAt(pos);
+});
+
+canvas.addEventListener('mousemove', e => {
+  const pos = getWorldPos(e);
+  if (isDragging) { offsetX=e.clientX-dragStart.x; offsetY=e.clientY-dragStart.y; render(); return; }
+  if (currentTool==='measure' && measureAnchor && !measureFixed) { measureLive=pos; render(); return; }
+  if (!isDrawing) return;
+  paintAt(pos); render();
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (isDrawing) { isDrawing=false; render(); recalcFromPixels(); }
+  isDragging = false;
+});
+canvas.addEventListener('mouseleave', () => { isDrawing=false; isDragging=false; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX-r.left, my = e.clientY-r.top;
+  const delta = e.deltaY < 0 ? 1.1 : 0.9;
+  const ns = Math.min(6, Math.max(0.1, scale*delta));
+  offsetX = mx-(mx-offsetX)*(ns/scale);
+  offsetY = my-(my-offsetY)*(ns/scale);
+  scale = ns; render();
+}, { passive:false });
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const pos = getWorldPos(e);
+  const found = holes.find(h => Math.hypot(h.x-pos.x, h.y-pos.y) < 20/scale);
+  if (found) {
+    ctxMenuTarget = found;
+    const m = document.getElementById('ctx-menu');
+    m.style.display='flex'; m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px';
+  }
+});
+document.addEventListener('click', () => document.getElementById('ctx-menu').style.display='none');
+
+// ============================================================
+// MEASURE
+// ============================================================
+function handleMeasureDown(pos) {
+  if (!measureAnchor) { measureAnchor=pos; measureFixed=null; measureLive=null; render(); }
+  else if (!measureFixed) { measureFixed=pos; measureLive=null; render(); }
+  else { measureAnchor=null; measureFixed=null; measureLive=null; render(); }
+}
+
+// ============================================================
+// PAINTING
+// ============================================================
+function paintAt(pos) {
+  const brush = parseInt(document.getElementById('brush-size').value);
+  if (currentTool==='erase') {
+    offCtx.fillStyle='#2a5a22';
+    offCtx.beginPath(); offCtx.arc(pos.x, pos.y, brush, 0, Math.PI*2); offCtx.fill();
+  } else if (currentTool==='trees') {
+    for (let i=0;i<6;i++) {
+      const rx=pos.x+(Math.random()-.5)*brush*2, ry=pos.y+(Math.random()-.5)*brush*2;
+      offCtx.beginPath(); offCtx.arc(rx,ry,brush*.4,0,Math.PI*2);
+      offCtx.fillStyle = i%2===0?'#1e4a1e':'#2a6a2a'; offCtx.fill();
+    }
+  } else {
+    offCtx.beginPath(); offCtx.arc(pos.x,pos.y,brush,0,Math.PI*2);
+    offCtx.fillStyle = DRAW_COLOR[currentTool]||'#4a7c3f'; offCtx.fill();
+  }
+}
+
+// ============================================================
+// PIXEL SAMPLING FOR BUDGET
+// ============================================================
+function recalcFromPixels() {
+  const STEP = 6;
+  const data = offCtx.getImageData(0, 0, worldW, worldH).data;
+  const counts = { fairway:0, rough:0, green:0, bunker:0, water:0, trees:0, path:0 };
+  for (let py=0; py<worldH; py+=STEP) {
+    for (let px=0; px<worldW; px+=STEP) {
+      const i = (py*worldW+px)*4;
+      const k = classifyPx(data[i], data[i+1], data[i+2]);
+      if (k) counts[k]++;
+    }
+  }
+  for (let k in counts) terrainAreas[k] = counts[k]*STEP*STEP/100;
+  updateBudgetUI();
+  updatePrestige();
+}
+
+function classifyPx(r,g,b) {
+  if (r<55&&g>60&&g<115&&b<55&&Math.abs(r-42)<20&&Math.abs(g-90)<25&&Math.abs(b-34)<20) return null;
+  let best=null, bestD=40*40*3;
+  for (let k in COLOR_REF) {
+    const c=COLOR_REF[k];
+    const d=(r-c[0])**2+(g-c[1])**2+(b-c[2])**2;
+    if (d<bestD){bestD=d;best=k;}
+  }
+  return bestD<3200?best:null;
+}
+
+// ============================================================
+// BUDGET UI
+// ============================================================
+function updateBudgetUI() {
+  const budget = parseInt(document.getElementById('budget-input').value)||10000000;
+  let terrTotal = 0;
+  for (let k in terrainAreas) terrTotal += terrainAreas[k]*(COSTS[k]||0);
+  const teeCost = tees.length*TEE_COST, flagCost = holes.length*FLAG_COST;
+  const total = Math.round(terrTotal+teeCost+flagCost);
+  const remaining = budget - total;
+  const pct = Math.min(100, budget>0?total/budget*100:0);
+  const barCol = pct<70?'#5a9e4a':pct<90?'#e8a060':'#e05a5a';
+
+  document.getElementById('hb-bar').style.cssText=`width:${pct}%;background:${barCol};`;
+  document.getElementById('hb-spent').textContent='$'+total.toLocaleString();
+  document.getElementById('hb-total').textContent='/ $'+budget.toLocaleString();
+  document.getElementById('budget-bar').style.cssText=`width:${pct}%;background:${barCol};`;
+
+  const NAMES = { fairway:'Fairway',rough:'Rough',green:'Greens',bunker:'Bunkers',water:'Water',trees:'Trees',path:'Cart Path' };
+  let lines = '';
+  for (let k in terrainAreas) {
+    const cost = Math.round(terrainAreas[k]*(COSTS[k]||0));
+    if (cost < 10) continue;
+    lines += `<div class="b-line">
+      <span class="bln"><span class="b-dot" style="background:${DOT_COLOR[k]||'#888'}"></span>${NAMES[k]||k}</span>
+      <span class="b-cost">$${cost.toLocaleString()}</span></div>`;
+  }
+  if (tees.length>0) lines+=`<div class="b-line"><span class="bln">🏌 Tee Boxes ×${tees.length}</span><span class="b-cost">$${teeCost.toLocaleString()}</span></div>`;
+  if (holes.length>0) lines+=`<div class="b-line"><span class="bln">⛳ Holes ×${holes.length}</span><span class="b-cost">$${flagCost.toLocaleString()}</span></div>`;
+
+  const remCls = remaining<0?'clr-over':pct>=90?'clr-warn':'clr-ok';
+  const remTxt = remaining<0?`OVER $${Math.abs(remaining).toLocaleString()}`:`$${remaining.toLocaleString()} remaining`;
+
+  document.getElementById('budget-breakdown').innerHTML = lines +
+    `<div class="b-total-row"><span class="btl">Total Spent</span><span class="btv">$${total.toLocaleString()}</span></div>
+     <div class="b-total-row"><span class="btl">Budget Left</span><span class="btv ${remCls}">${remTxt}</span></div>`;
+}
+
+// ============================================================
+// PLACE OBJECTS
+// ============================================================
+function placeFlag(pos) {
+  saveUndo();
+  const n = holes.length+1;
+  const h = {id:Date.now(),x:pos.x,y:pos.y,number:n,name:`Hole ${n}`,par:4,dist:380,hcp:n,notes:''};
+  holes.push(h); render(); updateHoleList(); updateScorecard(); updateBudgetUI(); updatePrestige();
+  openHoleModal(h.id);
+}
+function placeTee(pos) {
+  saveUndo(); tees.push({x:pos.x,y:pos.y}); render(); updateBudgetUI(); updatePrestige();
+}
+function addHoleManually() {
+  const n = holes.length+1;
+  const h = {id:Date.now(),x:worldW/2+(Math.random()-.5)*600,y:worldH/2+(Math.random()-.5)*600,number:n,name:`Hole ${n}`,par:4,dist:380,hcp:n,notes:''};
+  holes.push(h); render(); updateHoleList(); updateScorecard(); updateBudgetUI(); updatePrestige(); openHoleModal(h.id);
+}
+
+// ============================================================
+// UNDO
+// ============================================================
+function saveUndo() {
+  if (undoStack.length>20) undoStack.shift();
+  undoStack.push(offCtx.getImageData(0,0,worldW,worldH));
+}
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='z' && undoStack.length>0) {
+    offCtx.putImageData(undoStack.pop(), 0, 0); render(); recalcFromPixels();
+  }
+});
+
+// ============================================================
+// HOLE LIST
+// ============================================================
+function updateHoleList() {
+  const list = document.getElementById('hole-list');
+  const empty = document.getElementById('hole-empty');
+  if (holes.length===0) { list.innerHTML=''; list.appendChild(empty); return; }
+  list.innerHTML='';
+  holes.forEach(h => {
+    const parCls = h.par===3?'par3-badge':h.par===5?'par5-badge':'par4-badge';
+    const div = document.createElement('div');
+    div.className = 'hole-item' + (h.id===selectedHoleId?' selected':'');
+    div.onclick = () => { selectedHoleId=h.id; render(); updateHoleList(); };
+    div.innerHTML = `
+      <button class="hole-del" onclick="event.stopPropagation();deleteHole(${h.id})">✕</button>
+      <div class="hole-item-head">
+        <span class="hole-num-label">Hole ${h.number}</span>
+        <span class="hole-par-badge ${parCls}">Par ${h.par}</span>
+      </div>
+      <input class="hole-name-inp" value="${h.name}" placeholder="Hole name…"
+        onchange="updateHoleField(${h.id},'name',this.value)" onclick="event.stopPropagation()">
+      <div class="hole-fields">
+        <div class="field-group">
+          <label>Par</label>
+          <select class="field-sel" onchange="updateHoleField(${h.id},'par',parseInt(this.value))" onclick="event.stopPropagation()">
+            <option value="3" ${h.par==3?'selected':''}>3</option>
+            <option value="4" ${h.par==4?'selected':''}>4</option>
+            <option value="5" ${h.par==5?'selected':''}>5</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Yards</label>
+          <input class="field-inp" type="number" value="${h.dist}" min="50" max="750"
+            onchange="updateHoleField(${h.id},'dist',parseInt(this.value))" onclick="event.stopPropagation()">
+        </div>
+        <div class="field-group">
+          <label>Hcp</label>
+          <input class="field-inp" type="number" value="${h.hcp}" min="1" max="18"
+            onchange="updateHoleField(${h.id},'hcp',parseInt(this.value))" onclick="event.stopPropagation()">
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+function updateHoleField(id,field,val){
+  const h=holes.find(x=>x.id===id);
+  if(h){h[field]=val;updateScorecard();updateHoleList();render();updatePrestige();}
+}
+function deleteHole(id){
+  holes=holes.filter(h=>h.id!==id);holes.forEach((h,i)=>h.number=i+1);
+  if(selectedHoleId===id)selectedHoleId=null;
+  render();updateHoleList();updateScorecard();updateBudgetUI();updatePrestige();
+}
+
+// ============================================================
+// SCORECARD
+// ============================================================
+function updateScorecard(){
+  const name=document.getElementById('course-name').value||'Your Course';
+  document.getElementById('sc-course-name').textContent=name;
+  const cont=document.getElementById('scorecard-content');
+  if(!holes.length){cont.innerHTML='<div class="empty-hint">Add holes to see your scorecard.</div>';return;}
+  let html=buildSCTable('Front Nine',holes.slice(0,9));
+  if(holes.length>9)html+=buildSCTable('Back Nine',holes.slice(9,18));
+  const tp=holes.reduce((s,h)=>s+h.par,0),td=holes.reduce((s,h)=>s+h.dist,0);
+  html+=`<div class="stat-row"><span class="sl">Total Par</span><span class="sv">${tp}</span></div>
+         <div class="stat-row"><span class="sl">Total Yards</span><span class="sv">${td.toLocaleString()}</span></div>
+         <div class="stat-row"><span class="sl">Holes</span><span class="sv">${holes.length}</span></div>`;
+  cont.innerHTML=html;
+}
+function buildSCTable(label,set){
+  if(!set.length)return'';
+  const sp=set.reduce((s,h)=>s+h.par,0),sd=set.reduce((s,h)=>s+h.dist,0);
+  const rows=set.map(h=>`<tr>
+    <td>${h.number}</td>
+    <td style="text-align:left;font-style:italic;max-width:72px;overflow:hidden;white-space:nowrap;font-size:11px;">${h.name}</td>
+    <td class="p${h.par}">${h.par}</td>
+    <td>${h.dist}</td>
+    <td>${h.hcp}</td>
+  </tr>`).join('');
+  return`<div class="sc-sub">${label}</div>
+    <table class="sc"><thead><tr><th>#</th><th style="text-align:left">Name</th><th>Par</th><th>Yds</th><th>Hcp</th></tr></thead>
+    <tbody>${rows}<tr class="sc-total-row"><td colspan="2" style="text-align:left">Total</td><td>${sp}</td><td>${sd}</td><td></td></tr></tbody></table>`;
+}
+document.getElementById('course-name').addEventListener('input', updateScorecard);
+
+// ============================================================
+// MODAL
+// ============================================================
+function openHoleModal(id){
+  const h=holes.find(x=>x.id===id);if(!h)return;
+  editingHoleId=id;
+  document.getElementById('modal-hole-title').textContent=`Hole ${h.number} Details`;
+  document.getElementById('modal-hole-name').value=h.name;
+  document.getElementById('modal-hole-par').value=h.par;
+  document.getElementById('modal-hole-dist').value=h.dist;
+  document.getElementById('modal-hole-hcp').value=h.hcp;
+  document.getElementById('modal-hole-notes').value=h.notes||'';
+  document.getElementById('modal-hole').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-hole').classList.remove('open');editingHoleId=null;}
+function saveHoleDetails(){
+  if(!editingHoleId)return;
+  const h=holes.find(x=>x.id===editingHoleId);if(!h)return;
+  h.name=document.getElementById('modal-hole-name').value||h.name;
+  h.par=parseInt(document.getElementById('modal-hole-par').value);
+  h.dist=parseInt(document.getElementById('modal-hole-dist').value)||h.dist;
+  h.hcp=parseInt(document.getElementById('modal-hole-hcp').value)||h.hcp;
+  h.notes=document.getElementById('modal-hole-notes').value;
+  closeModal();updateHoleList();updateScorecard();render();updatePrestige();
+}
+
+// ============================================================
+// CONTEXT MENU
+// ============================================================
+function ctxEditHole(){if(ctxMenuTarget)openHoleModal(ctxMenuTarget.id);}
+function ctxDeleteElement(){if(ctxMenuTarget)deleteHole(ctxMenuTarget.id);}
+
+// ============================================================
+// ZOOM / PAN
+// ============================================================
+function zoom(f){
+  const cx=canvas.width/2,cy=canvas.height/2;
+  const ns=Math.min(6,Math.max(0.1,scale*f));
+  offsetX=cx-(cx-offsetX)*(ns/scale);offsetY=cy-(cy-offsetY)*(ns/scale);scale=ns;render();
+}
+function resetZoom(){
+  const fit=Math.min(canvas.width,canvas.height);
+  scale=fit/worldW*0.9;
+  offsetX=(canvas.width-worldW*scale)/2;offsetY=(canvas.height-worldH*scale)/2;render();
+}
+
+// ============================================================
+// SAVE / LOAD / CLEAR
+// ============================================================
+function saveCourse(){
+  localStorage.setItem('gk_v2',JSON.stringify({name:document.getElementById('course-name').value,holes,tees,terrainAreas,budget:document.getElementById('budget-input').value}));
+  localStorage.setItem('gk_v2_img',offCanvas.toDataURL('image/png'));
+  alert('✅ Course saved!');
+}
+function loadCourse(){
+  const raw=localStorage.getItem('gk_v2'),img=localStorage.getItem('gk_v2_img');
+  if(!raw){alert('No saved course found.');return;}
+  const d=JSON.parse(raw);
+  document.getElementById('course-name').value=d.name||'';
+  holes=d.holes||[];tees=d.tees||[];
+  if(d.terrainAreas)terrainAreas={...terrainAreas,...d.terrainAreas};
+  if(d.budget)document.getElementById('budget-input').value=d.budget;
+  if(img){const im=new Image();im.onload=()=>{offCtx.drawImage(im,0,0);render();};im.src=img;}
+  updateHoleList();updateScorecard();updateBudgetUI();updatePrestige();render();alert('✅ Course loaded!');
+}
+function clearCanvas(){
+  if(!confirm('Clear the entire course?'))return;
+  saveUndo();
+  offCtx.fillStyle='#2a5a22';offCtx.fillRect(0,0,worldW,worldH);drawBg();
+  holes=[];tees=[];terrainAreas={fairway:0,rough:0,green:0,bunker:0,water:0,trees:0,path:0};
+  measureAnchor=null;measureFixed=null;measureLive=null;
+  render();updateHoleList();updateScorecard();updateBudgetUI();updatePrestige();
+}
+
+// ============================================================
+// PRESTIGE ENGINE
+// ============================================================
+const TIERS = [
+  {min:0,  max:19,  name:'Overgrown Meadow',       color:'#8a9a78', emoji:'🌱'},
+  {min:20, max:34,  name:'Municipal Track',          color:'#8aaa70', emoji:'⛳'},
+  {min:35, max:49,  name:'Regional Club',             color:'#c8a96e', emoji:'🏌'},
+  {min:50, max:64,  name:'Championship Candidate',   color:'#d4aa50', emoji:'🏆'},
+  {min:65, max:79,  name:'Tour-Worthy Links',         color:'#e0c060', emoji:'🌟'},
+  {min:80, max:89,  name:'Elite Destination',         color:'#e8d080', emoji:'💎'},
+  {min:90, max:100, name:'Legendary Classic',         color:'#ffe066', emoji:'👑'},
+];
+
+const PLAYERS = [
+  {name:'T. Calloway',  handicap:'+2', avatar:'🧔'},
+  {name:'M. Fairbanks', handicap:'5',  avatar:'👩'},
+  {name:'D. Ashcroft',  handicap:'12', avatar:'🧓'},
+  {name:'J. Pemberton', handicap:'0',  avatar:'🕵'},
+  {name:'S. Nakamura',  handicap:'+1', avatar:'🧑'},
+  {name:'G. Hargreaves',handicap:'18', avatar:'👴'},
+  {name:'C. Drummond',  handicap:'7',  avatar:'👱'},
+  {name:'P. Vasquez',   handicap:'3',  avatar:'🧕'},
+];
+
+const COMMENT_TEMPLATES = {
+  great_variety:    ["The mix of terrain here is superb — every hole feels fresh.","Incredible variety. You simply never know what's coming next.","The contrast between tight rough and open fairways is brilliant design."],
+  great_bunkers:    ["Those bunkers are placed with real strategic intent. Genuinely penal.","I've never cursed a sand trap so lovingly. Masterful placement.","The bunker work here rivals anything I've seen at Augusta."],
+  great_water:      ["The water hazards add genuine drama. I nearly threw a club at 7.","That approach over water on 12 is one of the finest risk-reward holes I've played.","The water features give this course a real championship feel."],
+  great_greens:     ["The greens are exceptional — fast, undulating, and terrifyingly fair.","I can't remember putting surfaces this good outside a Major.","Whoever designed these greens understands the game deeply."],
+  full_18:          ["A full eighteen holes — exactly as it should be. No complaints.","The full layout flows perfectly. The routing is genuinely inspired.","Playing all 18 felt like a complete story. Bravo."],
+  good_length:      ["The yardage is spot-on for a serious test without being gimmicky.","Ideal length — long enough to demand respect, short enough to remain fun.","The distance perfectly balances challenge and enjoyment."],
+  named_holes:      ["The named holes show someone actually cares about this place.","Lovely to see character in the hole names. Real sense of identity.","'The Devil's Spine' on 14 deserves its reputation."],
+  good_par_mix:     ["The par variety is perfect. Precision tests alongside power holes.","I love the rhythm — short, strategic, then long and powerful.","The mixture of par 3, 4, and 5s gives this course real structure."],
+  big_investment:   ["You can see where the money went. This is a premium build.","Every dollar is visible on the turf. The quality speaks for itself.","Someone invested seriously in this layout. It shows."],
+  no_bunkers:       ["Where are the bunkers? This layout is far too forgiving.","I barely broke a sweat. Nothing here punishes a wayward shot.","A course without proper bunkering is just a very expensive lawn."],
+  too_many_bunkers: ["Every square foot is sand. Did a beach explode here?","I spent more time in bunkers than on fairways. This borders on sadistic.","The bunker count needs halving. This is overkill, not strategy."],
+  no_water:         ["No water features at all? It feels flat and safe.","Where's the drama? A little water goes a long way.","Without a water hazard, there are no real stakes here."],
+  no_trees:         ["The lack of tree corridors makes this feel exposed and unfinished.","Some mature tree lines would frame these holes beautifully.","It needs trees. Without them it has no sense of place."],
+  short_course:     ["Far too short. Any decent player will eat this alive.","I could play this course with a putter and a prayer.","The yardage is embarrassingly modest for a serious layout."],
+  few_holes:        ["Only a handful of holes? Come back when it's a real course.","I was barely warmed up when it ended. Build more holes.","This is barely a practice loop, not a golf course."],
+  no_greens:        ["Without proper green complexes, this is just farmland with flags.","The greens are absent. How is anyone supposed to finish a hole?","No dedicated putting surfaces? This is a planning failure."],
+  no_rough:         ["No rough at all? Where's the punishment for going off-line?","You could fire a cannon sideways and still hit the fairway. Add some rough.","A course without rough has no teeth whatsoever."],
+  low_budget_spent: ["The investment looks thin. The turf condition tells the whole story.","This feels like a budget constraint project. It shows in the finish.","Corners were cut here that really shouldn't have been."],
+  no_par3:          ["Not a single par-3? The course lacks the precision test every layout needs.","Where are the short holes? Par-3s are the soul of a course.","Every great course has at least a couple of par-3 gems. This has none."],
+  no_par5:          ["I'd love a par-5 to really stretch out. The layout feels hemmed in.","No long holes at all? There's nowhere to really grip it and rip it.","Par-5s bring excitement and drama. This course needs at least one."],
+  over_budget:      ["Word is the build ran over budget. You can see where the cuts hit.","Budget overruns on a build like this usually end careers. Careful.","The ambition outpaced the finances. Something had to give."],
+};
+
+let lastPrestige = -1;
+let shownCommentKeys = new Set();
+
+function calcPrestige(){
+  const areaOf=k=>(terrainAreas[k]||0);
+  const score={total:0,factors:[]};
+  const hc=holes.length;
+  let holeScore=hc>=18?20:hc>=9?10+Math.round((hc-9)/9*9):hc>0?Math.round(hc/9*10):0;
+  score.total+=holeScore;score.factors.push({label:'Hole Count',score:holeScore,max:20,icon:'⛳'});
+  const typesUsed=Object.keys(terrainAreas).filter(k=>areaOf(k)>80).length;
+  const varScore=Math.round(Math.min(7,typesUsed)/7*20);
+  score.total+=varScore;score.factors.push({label:'Terrain Variety',score:varScore,max:20,icon:'🗺'});
+  let bal=0;
+  if(areaOf('bunker')>0)bal+=4;if(areaOf('water')>0)bal+=4;if(areaOf('trees')>0)bal+=3;
+  if(areaOf('rough')>0)bal+=3;if(areaOf('green')>0)bal+=4;if(areaOf('path')>0)bal+=2;
+  score.total+=bal;score.factors.push({label:'Feature Balance',score:bal,max:20,icon:'🏗'});
+  const pars=holes.map(h=>h.par);
+  const parV=(pars.includes(3)?5:0)+(pars.includes(4)?5:0)+(pars.includes(5)?5:0);
+  score.total+=parV;score.factors.push({label:'Par Variety',score:parV,max:15,icon:'📐'});
+  const totalYards=holes.reduce((s,h)=>s+h.dist,0);
+  let lenScore=totalYards>=6000&&totalYards<=7500?10:totalYards>=4000?Math.round((totalYards-4000)/2000*10):totalYards>0?2:0;
+  score.total+=lenScore;score.factors.push({label:'Course Length',score:lenScore,max:10,icon:'📏'});
+  const namedCount=holes.filter(h=>h.name&&!h.name.match(/^Hole \d+$/)).length;
+  const namedScore=hc>0?Math.round(namedCount/Math.max(hc,1)*10):0;
+  score.total+=namedScore;score.factors.push({label:'Named Holes',score:namedScore,max:10,icon:'✍'});
+  const budget=parseInt(document.getElementById('budget-input').value)||10000000;
+  let tT=0;for(let k in terrainAreas)tT+=terrainAreas[k]*(COSTS[k]||0);
+  const spent=tT+tees.length*TEE_COST+holes.length*FLAG_COST;
+  const spPct=budget>0?spent/budget:0;
+  const invScore=spPct>=1.0?0:Math.round(Math.min(spPct/0.8,1)*5);
+  score.total+=invScore;score.factors.push({label:'Investment',score:invScore,max:5,icon:'💰'});
+  score.total=Math.min(100,Math.round(score.total));
+  return score;
+}
+
+function buildCommentConditions(){
+  const areaOf=k=>(terrainAreas[k]||0);
+  const budget=parseInt(document.getElementById('budget-input').value)||10000000;
+  let tT=0;for(let k in terrainAreas)tT+=terrainAreas[k]*(COSTS[k]||0);
+  const totalSpent=tT+tees.length*TEE_COST+holes.length*FLAG_COST;
+  const pars=holes.map(h=>h.par);
+  const totalYards=holes.reduce((s,h)=>s+h.dist,0);
+  const typesUsed=Object.keys(terrainAreas).filter(k=>areaOf(k)>80).length;
+  const namedCount=holes.filter(h=>h.name&&!h.name.match(/^Hole \d+$/)).length;
+  const conds=[];
+  if(typesUsed>=5)conds.push({key:'great_variety',sentiment:'pos'});
+  if(areaOf('bunker')>300&&areaOf('bunker')<2000)conds.push({key:'great_bunkers',sentiment:'pos'});
+  if(areaOf('water')>200)conds.push({key:'great_water',sentiment:'pos'});
+  if(areaOf('green')>300)conds.push({key:'great_greens',sentiment:'pos'});
+  if(holes.length>=18)conds.push({key:'full_18',sentiment:'pos'});
+  if(totalYards>=5500&&totalYards<=8000)conds.push({key:'good_length',sentiment:'pos'});
+  if(namedCount>=3)conds.push({key:'named_holes',sentiment:'pos'});
+  if(pars.includes(3)&&pars.includes(4)&&pars.includes(5))conds.push({key:'good_par_mix',sentiment:'pos'});
+  if(totalSpent>budget*0.6)conds.push({key:'big_investment',sentiment:'pos'});
+  if(holes.length>0&&areaOf('bunker')<50)conds.push({key:'no_bunkers',sentiment:'neg'});
+  if(areaOf('bunker')>3000)conds.push({key:'too_many_bunkers',sentiment:'neg'});
+  if(holes.length>0&&areaOf('water')<50)conds.push({key:'no_water',sentiment:'neg'});
+  if(holes.length>0&&areaOf('trees')<50)conds.push({key:'no_trees',sentiment:'neg'});
+  if(holes.length>=9&&totalYards<3500)conds.push({key:'short_course',sentiment:'neg'});
+  if(holes.length>0&&holes.length<9)conds.push({key:'few_holes',sentiment:'neg'});
+  if(holes.length>0&&areaOf('green')<50)conds.push({key:'no_greens',sentiment:'neg'});
+  if(holes.length>0&&areaOf('rough')<50)conds.push({key:'no_rough',sentiment:'neg'});
+  if(totalSpent<budget*0.2&&holes.length>0)conds.push({key:'low_budget_spent',sentiment:'neg'});
+  if(holes.length>=6&&!pars.includes(3))conds.push({key:'no_par3',sentiment:'neg'});
+  if(holes.length>=9&&!pars.includes(5))conds.push({key:'no_par5',sentiment:'neg'});
+  if(totalSpent>budget*1.05)conds.push({key:'over_budget',sentiment:'neg'});
+  return conds;
+}
+
+function updatePrestige(){
+  if(holes.length===0&&Object.values(terrainAreas).every(v=>v<50)){
+    document.getElementById('prestige-tier').textContent='—';
+    document.getElementById('prestige-num').textContent='0';
+    document.getElementById('prestige-bar').style.cssText='width:0%;background:#555;';
+    document.getElementById('prestige-next').textContent='Start building to earn prestige';
+    document.getElementById('prestige-factors').innerHTML='';
+    document.getElementById('player-comments').innerHTML='<div class="empty-hint">No reviews yet.</div>';
+    return;
+  }
+  const result=calcPrestige();
+  const score=result.total;
+  const tier=TIERS.find(t=>score>=t.min&&score<=t.max)||TIERS[0];
+  document.getElementById('prestige-num').textContent=score;
+  const barCol=score<35?'#8aaa70':score<65?'#c8a96e':score<80?'#d4aa50':'#ffe066';
+  document.getElementById('prestige-bar').style.cssText=`width:${score}%;background:${barCol};transition:width .5s,background .5s;`;
+  const tierEl=document.getElementById('prestige-tier');
+  tierEl.textContent=`${tier.emoji} ${tier.name}`;tierEl.style.color=tier.color;
+  const nextTier=TIERS.find(t=>t.min>score);
+  document.getElementById('prestige-next').textContent=nextTier?`${nextTier.min-score} pts to reach "${nextTier.name}"`:'The pinnacle. A truly Legendary course.';
+  document.getElementById('prestige-factors').innerHTML=result.factors.map(f=>{
+    const filled=Math.round(f.score/f.max*5);
+    const col=filled>=4?'on-g':filled>=2?'on-y':'on-r';
+    const dots=Array.from({length:5},(_,i)=>`<div class="fdot${i<filled?' '+col:''}"></div>`).join('');
+    return`<div class="factor-row"><div class="fi">${f.icon}</div><div class="fl">${f.label}</div><div class="fd">${dots}</div></div>`;
+  }).join('');
+  if(Math.abs(score-lastPrestige)>=3||lastPrestige===-1){
+    const conds=buildCommentConditions();
+    const avail=conds.filter(c=>!shownCommentKeys.has(c.key)||Math.random()<0.3);
+    const pos=avail.filter(c=>c.sentiment==='pos'),neg=avail.filter(c=>c.sentiment==='neg');
+    const chosen=[];
+    const posT=score>=50?2:1;
+    pos.slice(0,posT).forEach(c=>chosen.push(c));
+    neg.slice(0,3-chosen.length).forEach(c=>chosen.push(c));
+    if(chosen.length>0){
+      chosen.forEach(c=>shownCommentKeys.add(c.key));
+      const stars=s=>s>=80?'★★★★★':s>=60?'★★★★☆':s>=40?'★★★☆☆':'★★☆☆☆';
+      document.getElementById('player-comments').innerHTML=chosen.map(c=>{
+        const tmpl=COMMENT_TEMPLATES[c.key]||[];
+        const txt=tmpl[Math.floor(Math.random()*tmpl.length)]||'';
+        const pl=PLAYERS[Math.floor(Math.random()*PLAYERS.length)];
+        return`<div class="comment-card ${c.sentiment}">
+          <div class="cmt-header">
+            <span class="cmt-player">${pl.avatar} ${pl.name} (Hcp ${pl.handicap})</span>
+            <span class="cmt-stars">${stars(score)}</span>
+          </div>
+          <div class="cmt-text">"${txt}"</div>
+        </div>`;
+      }).join('');
+    }
+    lastPrestige=score;
+  }
+}
+
+init();
+
+</script>
+</body>
+</html>
